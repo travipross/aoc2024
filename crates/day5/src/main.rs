@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 const RAW: &str = include_str!("../input.txt");
 
 type Rule = (u32, u32);
@@ -40,8 +42,6 @@ fn update_satisfies_rule(update: &Update, rule: &Rule) -> bool {
     } else {
         false
     };
-
-    // println!("{update:?}, {rule:?}, violated: {violated_rule}");
     !violated_rule
 }
 
@@ -51,7 +51,57 @@ fn middle_page_from_update(update: &Update) -> Page {
 }
 
 fn reorder_pages_from_update(update: &Update, rules: &Vec<Rule>) -> Update {
-    todo!()
+    let mut graph = petgraph::graph::DiGraph::<Page, Page>::new();
+    let mut graph_node_indexes = HashMap::<Page, petgraph::graph::NodeIndex>::new();
+
+    for &page in update {
+        rules
+            .iter()
+            .filter(|&r| page == r.0 || page == r.1)
+            .for_each(|r| {
+                let idx_left = if let Some(idx) = graph_node_indexes.get(&r.0) {
+                    Some(idx.clone())
+                } else if update.contains(&r.0) {
+                    let idx = graph.add_node(r.0);
+                    graph_node_indexes.insert(r.0, idx);
+                    Some(idx)
+                } else {
+                    None
+                };
+
+                let idx_right = if let Some(idx) = graph_node_indexes.get(&r.1) {
+                    Some(idx.clone())
+                } else if update.contains(&r.1) {
+                    let idx = graph.add_node(r.1);
+                    graph_node_indexes.insert(r.1, idx);
+                    Some(idx)
+                } else {
+                    None
+                };
+
+                if let (Some(idx_left), Some(idx_right)) = (idx_left, idx_right) {
+                    graph.add_edge(idx_left, idx_right, 0);
+                }
+            })
+    }
+
+    // println!(
+    //     "{:?}",
+    //     petgraph::dot::Dot::with_config(&graph, &[petgraph::dot::Config::EdgeIndexLabel])
+    // );
+
+    let sorted_update = petgraph::algo::toposort(&graph, None)
+        .expect("could not sort graph")
+        .iter()
+        .map(|&idx| {
+            graph
+                .node_weight(idx)
+                .expect("could not get node from graph")
+        })
+        .cloned()
+        .collect();
+
+    sorted_update
 }
 
 fn part1(rules: &Vec<Rule>, updates: &Vec<Update>) -> u32 {
@@ -73,6 +123,7 @@ fn part2(rules: &Vec<Rule>, updates: &Vec<Update>) -> u32 {
 fn main() {
     let (rules, updates) = parse_input(RAW);
     println!("Part 1: {}", part1(&rules, &updates));
+    println!("Part 2: {}", part2(&rules, &updates));
 }
 
 #[cfg(test)]

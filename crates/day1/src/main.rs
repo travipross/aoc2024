@@ -48,17 +48,16 @@ fn part2(input: &str) -> u32 {
 }
 
 fn main() {
-    println!("Hello, world!");
     // Read and parse input
     let input1_txt = include_str!("../input.txt");
 
     // // First answer
     let ans1 = part1(&input1_txt);
-    println!("Answer 1: {ans1}");
+    println!("Part 1: {ans1}");
 
     // 2nd answer
     let ans2 = part2(input1_txt);
-    println!("Answer 2: {ans2}");
+    println!("Part 2: {ans2}");
 }
 
 #[cfg(test)]

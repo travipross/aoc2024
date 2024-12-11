@@ -8,8 +8,8 @@ const RAW: &str = include_str!("../input.txt");
 
 fn main() {
     let puzzle = parse_input(RAW);
-    println!("Part1: XMAS found {} times", part1(puzzle.clone()));
-    println!("Part2: X-MAS found {} times", part2(&puzzle));
+    println!("Part 1: XMAS found {} times", part1(puzzle.clone()));
+    println!("Part 2: X-MAS found {} times", part2(&puzzle));
 }
 
 #[derive(Clone, PartialEq, Debug, Eq)]

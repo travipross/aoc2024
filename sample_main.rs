@@ -5,11 +5,11 @@ fn parse_input(raw: &str) -> Input {
     todo!()
 }
 
-fn part1(reports: &Input) -> usize {
+fn part1(input: &Input) -> usize {
     todo!()
 }
 
-fn part2(reports: &Input) -> usize {
+fn part2(input: &Input) -> usize {
     todo!()
 }
 

@@ -9,6 +9,12 @@ type Coord = (Row, Col);
 
 type AntennaFreq = char;
 
+#[derive(Debug, Clone, PartialEq)]
+enum AntinodeModel {
+    Old,
+    New,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Location {
     freq: Option<AntennaFreq>,
@@ -65,7 +71,7 @@ impl Input {
             .collect::<Vec<_>>()
     }
 
-    fn find_antinodes(&mut self) {
+    fn mark_all_antinodes(&mut self, model: &AntinodeModel) {
         // get unique frequencies found on map
         let unique_freqs = self
             .map
@@ -83,17 +89,19 @@ impl Input {
                 // loop over each combination of two antenna coords
                 for antenna_combos in antennas.iter().combinations(2) {
                     // find antinode locations for antennas
-                    let (antinode1, antinode2) =
-                        antinode_locations(*antenna_combos[0], *antenna_combos[1], self.bounds);
+                    let antinodes = antinode_locations(
+                        *antenna_combos[0],
+                        *antenna_combos[1],
+                        self.bounds,
+                        model,
+                    );
 
                     // for each antinode location, if on grid, update map location to set status
-                    for a in vec![antinode1, antinode2] {
-                        if let Some(antinode) = a {
-                            self.map
-                                .get_mut(&antinode)
-                                .expect("could not get coord")
-                                .is_antinode = true;
-                        }
+                    for antinode in antinodes {
+                        self.map
+                            .get_mut(&antinode)
+                            .expect("could not get coord")
+                            .is_antinode = true;
                     }
                 }
             }
@@ -105,27 +113,49 @@ impl Input {
     }
 }
 
+fn add_coord(c: Coord, diff: Coord, invert: bool) -> Coord {
+    if invert {
+        (c.0 - diff.0, c.1 - diff.1)
+    } else {
+        (c.0 + diff.0, c.1 + diff.1)
+    }
+}
+
 fn antinode_locations(
     c1: Coord,
     c2: Coord,
     bounds: (usize, usize),
-) -> (Option<Coord>, Option<Coord>) {
+    model: &AntinodeModel,
+) -> Vec<Coord> {
     let diff = (c2.0 - c1.0, c2.1 - c1.1);
-    let antinode1 = (c2.0 + diff.0, c2.1 + diff.1);
-    let antinode2 = (c1.0 - diff.0, c1.1 - diff.1);
+    let mut antinodes = vec![];
+    if model == &AntinodeModel::Old {
+        let antinode1 = add_coord(c2, diff, false);
+        let antinode2 = add_coord(c1, diff, true);
 
-    (
-        if coord_in_bound(antinode1, bounds) {
-            Some(antinode1)
-        } else {
-            None
-        },
-        if coord_in_bound(antinode2, bounds) {
-            Some(antinode2)
-        } else {
-            None
-        },
-    )
+        for n in [antinode1, antinode2] {
+            if coord_in_bound(n, bounds) {
+                antinodes.push(n);
+            }
+        }
+    } else {
+        // Antennas are always antinodes
+        antinodes.push(c1);
+        antinodes.push(c2);
+
+        // Step in both directions until off the grid
+        let mut c = add_coord(c2, diff, false);
+        while coord_in_bound(c, bounds) {
+            antinodes.push(c);
+            c = add_coord(c, diff, false);
+        }
+        c = add_coord(c1, diff, true);
+        while coord_in_bound(c, bounds) {
+            antinodes.push(c);
+            c = add_coord(c, diff, true)
+        }
+    }
+    antinodes
 }
 
 fn coord_in_bound(c: Coord, bounds: (usize, usize)) -> bool {
@@ -137,14 +167,15 @@ fn parse_input(raw: &str) -> Input {
 }
 
 fn part1(input: &Input) -> usize {
-    // find all unique frequencies
     let mut input = input.clone();
-    input.find_antinodes();
+    input.mark_all_antinodes(&AntinodeModel::Old);
     input.num_antinodes()
 }
 
 fn part2(input: &Input) -> usize {
-    todo!()
+    let mut input = input.clone();
+    input.mark_all_antinodes(&AntinodeModel::New);
+    input.num_antinodes()
 }
 
 fn main() {
@@ -176,18 +207,19 @@ mod day8_tests {
         assert_eq!(input.map.get(&(5, 7)).expect("does not exist").freq, None);
     }
 
-    #[test_case::test_case((3, 4), (5, 5), (12, 12), vec![Some((7, 6)), Some((1, 3))] ; "antinodes both on grid")]
-    #[test_case::test_case((4,8), (5, 5), (10, 10), vec![Some((6,2)), None] ; "one antinode off grid")]
-    #[test_case::test_case((9,8), (8,9), (10, 10), vec![None, None] ; "two antinodes off grid")]
+    #[test_case::test_case((3, 4), (5, 5), (12, 12), vec![(7, 6), (1, 3)], AntinodeModel::Old ; "antinodes both on grid")]
+    #[test_case::test_case((4,8), (5, 5), (10, 10), vec![(6,2)], AntinodeModel::Old ; "one antinode off grid")]
+    #[test_case::test_case((9,8), (8,9), (10, 10), vec![], AntinodeModel::Old ; "two antinodes off grid")]
     fn test_antinode_locations(
         c1: Coord,
         c2: Coord,
         bounds: (usize, usize),
-        expected_antinodes: Vec<Option<Coord>>,
+        expected_antinodes: Vec<Coord>,
+        model: AntinodeModel,
     ) {
-        let antinodes = antinode_locations(c1, c2, bounds);
+        let antinodes = antinode_locations(c1, c2, bounds, &model);
 
-        let antinodes = HashSet::<_, RandomState>::from_iter(vec![antinodes.0, antinodes.1]);
+        let antinodes = HashSet::<_, RandomState>::from_iter(antinodes);
         let expected = HashSet::<_, RandomState>::from_iter(expected_antinodes);
 
         assert_eq!(antinodes, expected);
